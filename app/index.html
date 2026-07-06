@@ -389,7 +389,8 @@ function stageHTML(){return STAGE.map((s,i)=>
   '<input type="text" style="flex:1" value="'+esc(s.dose)+'" onchange="STAGE['+i+'].dose=this.value" placeholder="dose">'+
   '<input type="time" style="flex:1.2" value="'+s.time+'" onchange="STAGE['+i+'].time=this.value">'+
   '<button class="rm" onclick="STAGE.splice('+i+',1);redrawStage()">&#10005;</button></div>').join('')||'<div class="empty">No items</div>'}
-function redrawStage(){document.getElementById('stageList').innerHTML=stageHTML()}
+function redrawStage(){document.getElementById('stageList').innerHTML=stageHTML();
+  const mp=document.getElementById('medPick');if(mp)mp.innerHTML=medPickHTML()}
 function saveStage(){
   const d=val('stDate')||todayStr();let n=0;
   STAGE.forEach(s=>{if(!s.name.trim())return;
@@ -422,11 +423,21 @@ function tplModal(){
   STAGE=TPL.items;
   openModal(mhead(TPL.isNew?'New template':'Edit template')+
     '<label class="f">Template name</label><input type="text" id="tplName" value="'+esc(TPL.name)+'" placeholder="e.g. Morning meds">'+
-    '<label class="f">Items (name, dose, usual time)</label>'+
+    '<label class="f">Tap medications to add or remove them</label>'+
+    '<div class="chips" id="medPick">'+medPickHTML()+'</div>'+
+    (S.meds.length?'':'<div class="muted small" style="margin-top:6px">Your medication list is empty. Close this and use "+ Add medication" first, or add a custom item below.</div>')+
+    '<label class="f">In this template (adjust dose / usual time)</label>'+
     '<div id="stageList">'+stageHTML()+'</div>'+
-    '<button class="btn ghost sm" style="margin-top:10px" onclick="STAGE.push({name:\'\',dose:\'\',time:\'08:00\'});redrawStage()">+ Add item</button>'+
+    '<button class="btn ghost sm" style="margin-top:10px" onclick="STAGE.push({name:\'\',dose:\'\',time:\'08:00\'});redrawStage()">+ Add custom item</button>'+
     '<div class="btnrow"><button class="btn" onclick="saveTemplate()">Save template</button></div>');
 }
+function medPickHTML(){return S.meds.map(m=>{
+  const inT=STAGE.some(s=>s.name.toLowerCase()===m.name.toLowerCase());
+  return '<span class="chip'+(inT?' on':'')+'" onclick="pickMed(\''+m.id+'\')">'+(inT?'&#10003; ':'+ ')+esc(m.name)+'</span>'}).join('')}
+function pickMed(id){const m=S.meds.find(x=>x.id===id);if(!m)return;
+  const i=STAGE.findIndex(s=>s.name.toLowerCase()===m.name.toLowerCase());
+  if(i>=0)STAGE.splice(i,1);else STAGE.push({name:m.name,dose:m.dose||'',time:'08:00'});
+  redrawStage();document.getElementById('medPick').innerHTML=medPickHTML()}
 function saveTemplate(){
   TPL.name=val('tplName').trim()||'Untitled';
   TPL.items=STAGE.filter(s=>s.name.trim());
@@ -833,6 +844,7 @@ function printReport(){
 
 /* ---------- init ---------- */
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 renderLog();hdr();
 </script>
 </body>
