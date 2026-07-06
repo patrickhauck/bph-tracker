@@ -45,6 +45,8 @@ main{padding:14px;max-width:760px;margin:0 auto}
 .tl-body{flex:1;font-size:14px}
 .tl-body .d{color:var(--sub);font-size:12px}
 .tl-night{background:var(--night2);border-radius:8px}
+.tl-sub{padding-left:36px;background:var(--bg);border-radius:8px;margin:2px 0;border-bottom:none}
+.tl-caret{font-size:13px;color:var(--sub);min-width:16px;text-align:center}
 /* buttons */
 .btn{display:inline-block;border:none;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:600;cursor:pointer;
   background:var(--acc);color:#fff}
@@ -226,10 +228,15 @@ function mhead(title){return '<div class="mhead"><h2>'+title+'</h2><button class
 /* ---------- LOG VIEW ---------- */
 function renderLog(){
   const t=todayStr();
+  const gmap={};
+  const singles=[];
+  S.doses.forEach(x=>{if(x.gid)(gmap[x.gid]=gmap[x.gid]||[]).push(x);else singles.push(x)});
   const items=[
     ...S.voids.map(x=>({k:'v',t:x.t,o:x})),
     ...S.fluids.map(x=>({k:'f',t:x.t,o:x})),
-    ...S.doses.map(x=>({k:'m',t:x.t,o:x}))
+    ...singles.map(x=>({k:'m',t:x.t,o:x})),
+    ...Object.values(gmap).map(g=>{g.sort((a,b)=>a.t.localeCompare(b.t));
+      return g.length===1?{k:'m',t:g[0].t,o:g[0]}:{k:'g',t:g[0].t,g:g}})
   ].sort((a,b)=>b.t.localeCompare(a.t));
   const days={};
   items.forEach(i=>{const d=i.t.slice(0,10);(days[d]=days[d]||[]).push(i)});
@@ -261,10 +268,29 @@ function tlRow(i){
       '<span class="tl-time">'+fmtT(o.t)+'</span><span class="tl-ico">&#129380;</span>'+
       '<div class="tl-body"><b>'+ml2disp(o.ml)+' '+unitLbl()+'</b> '+o.type+(tags?'<div class="d">'+tags+'</div>':'')+'</div></div>';
   }
+  if(i.k==='g')return groupRow(i);
   return '<div class="tl-item" onclick="doseForm(\''+o.id+'\')">'+
+    '<span class="tl-time">'+fmtT(o.t)+'</span><span class="tl-ico">&#128138;'+dnIco(o.t)+'</span>'+
+    '<div class="tl-body"><b>'+esc(o.name)+'</b> '+esc(o.dose||'')+(o.missed?' · <span style="color:var(--bad)">missed</span>':'')+
+    (o.emod?' <span title="edited">&#9999;&#65039;</span>':'')+
+    (o.fx?'<div class="d">'+esc(o.fx)+'</div>':'')+'</div></div>';
+}
+function dnIco(iso){const h=+iso.slice(11,13);return (h>=6&&h<18)?'&#9728;&#65039;':'&#127769;'}
+let EXP={};
+function toggleG(gid){EXP[gid]=!EXP[gid];renderLog()}
+function groupRow(gi){
+  const g=gi.g,gid=g[0].gid,name=g[0].tpl||'Template',mod=g.some(x=>x.tmod||x.emod),open=!!EXP[gid];
+  let h='<div class="tl-item" onclick="toggleG(\''+gid+'\')">'+
+    '<span class="tl-time">'+fmtT(gi.t)+'</span><span class="tl-ico">'+dnIco(gi.t)+'</span>'+
+    '<div class="tl-body"><b>&#128203; '+esc(name)+'</b> · '+g.length+' items'+
+    (mod?' <span title="modified from template">&#9999;&#65039;</span>':'')+'</div>'+
+    '<span class="tl-caret">'+(open?'&#9660;':'&#9654;')+'</span></div>';
+  if(open)g.forEach(o=>{h+='<div class="tl-item tl-sub" onclick="doseForm(\''+o.id+'\')">'+
     '<span class="tl-time">'+fmtT(o.t)+'</span><span class="tl-ico">&#128138;</span>'+
-    '<div class="tl-body"><b>'+o.name+'</b> '+(o.dose||'')+(o.missed?' · <span style="color:var(--bad)">missed</span>':'')+
-    (o.fx?'<div class="d">'+o.fx+'</div>':'')+'</div></div>';
+    '<div class="tl-body">'+esc(o.name)+' '+esc(o.dose||'')+
+    (o.missed?' · <span style="color:var(--bad)">missed</span>':'')+
+    (o.emod?' <span title="edited">&#9999;&#65039;</span>':'')+'</div></div>'});
+  return h;
 }
 
 /* ---------- VOID form ---------- */
@@ -335,6 +361,8 @@ function saveFluid(id){
 function upsert(coll,o){const i=S[coll].findIndex(x=>x.id===o.id);if(i>=0)S[coll][i]=o;else S[coll].push(o);
   S[coll].sort((a,b)=>a.t.localeCompare(b.t));persist()}
 function delItem(coll,id){if(!confirm('Delete this entry?'))return;
+  if(coll==='doses'){const dd=S.doses.find(x=>x.id===id);
+    if(dd&&dd.gid)S.doses.forEach(x=>{if(x.gid===dd.gid&&x.id!==id)x.emod=true})}
   S[coll]=S[coll].filter(x=>x.id!==id);persist();closeModal();refresh()}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 /* ---------- MEDS ---------- */
@@ -360,7 +388,10 @@ function doseForm(id){
     '<div><label class="f">Time taken</label><input type="datetime-local" id="dT" value="'+(e?e.t:nowISO())+'"></div></div>'+
     '<div style="margin-top:8px">'+togHTML('dMissed','Missed this dose',e?e.missed:false)+'</div>'+
     '<label class="f">Side effects</label><input type="text" id="dFx" value="'+esc(e?e.fx:'')+'" placeholder="dizziness, congestion, fatigue&hellip;">'+
-    ((e&&S.doses.filter(x=>x.t===e.t).length>1)?
+    ((e&&e.gid&&S.doses.filter(x=>x.gid===e.gid).length>1)?
+      '<div style="margin-top:12px"><div class="muted small" style="margin-bottom:6px">Part of template: '+esc(e.tpl||'')+'</div>'+
+      '<button class="btn danger wide" onclick="delDoseGid(\''+e.gid+'\')">Delete entire template group ('+S.doses.filter(x=>x.gid===e.gid).length+' items)</button></div>':
+    (e&&S.doses.filter(x=>x.t===e.t).length>1)?
       '<div style="margin-top:12px"><button class="btn danger wide" onclick="delDoseGroup(\''+e.t+'\')">Delete all '+S.doses.filter(x=>x.t===e.t).length+' entries at this date/time</button></div>':'')+
     '<div class="btnrow">'+(e?'<button class="btn danger" onclick="delItem(\'doses\',\''+id+'\')">Delete this one</button>':'')+
     '<button class="btn" onclick="saveDose(\''+(id||'')+'\')">Save</button></div>');
@@ -370,6 +401,11 @@ function delDoseGroup(t){
   if(!confirm('Delete all '+n+' medication entries logged at this exact date/time?'))return;
   S.doses=S.doses.filter(x=>x.t!==t);persist();closeModal();refresh();
 }
+function delDoseGid(g){
+  const n=S.doses.filter(x=>x.gid===g).length;
+  if(!confirm('Delete all '+n+' entries from this template application?'))return;
+  S.doses=S.doses.filter(x=>x.gid!==g);persist();closeModal();refresh();
+}
 function fillDose(id){const m=S.meds.find(x=>x.id===id);if(!m)return;
   document.getElementById('dName').value=m.name;document.getElementById('dDose').value=m.dose||'';
   document.querySelectorAll('#dosePick .chip').forEach(c=>c.classList.remove('on'));
@@ -377,16 +413,23 @@ function fillDose(id){const m=S.meds.find(x=>x.id===id);if(!m)return;
 function saveDose(id){
   const name=val('dName').trim();if(!name){alert('Name required');return}
   const o={id:id||uid(),t:val('dT'),name:name,dose:val('dDose'),missed:togVal('dMissed'),fx:val('dFx')};
+  const prev=id?S.doses.find(x=>x.id===id):null;
+  if(prev&&prev.gid){o.gid=prev.gid;o.tpl=prev.tpl;o.tmod=prev.tmod;
+    if(prev.name!==o.name||prev.dose!==o.dose||prev.t!==o.t||prev.missed!==o.missed||prev.fx!==o.fx)o.emod=true;
+    else o.emod=prev.emod}
   if(!S.meds.some(m=>m.name.toLowerCase()===name.toLowerCase()))S.meds.push({id:uid(),name:name,dose:val('dDose')});
   upsert('doses',o);closeModal();refresh();
 }
 /* template staging */
-let STAGE=[];
+let STAGE=[],CUR_TPL=null;
 function applyTemplate(tid){
   const t=S.templates.find(x=>x.id===tid);if(!t)return;
+  CUR_TPL=t;
   STAGE=t.items.map(it=>({name:it.name,dose:it.dose,time:it.time||nowISO().slice(11,16)}));
   stageModal(t.name);
 }
+function canonItems(arr){return arr.filter(s=>s.name&&s.name.trim())
+  .map(s=>s.name.trim().toLowerCase()+'|'+(s.dose||'').trim()).sort().join(';')}
 function stageModal(tname){
   openModal(mhead('Apply: '+esc(tname))+
     '<div class="muted small">Remove anything you skipped, adjust times, or add extra items, then save. Each item becomes its own entry.</div>'+
@@ -404,9 +447,12 @@ function stageHTML(){return STAGE.map((s,i)=>
 function redrawStage(){document.getElementById('stageList').innerHTML=stageHTML();
   const mp=document.getElementById('medPick');if(mp)mp.innerHTML=medPickHTML()}
 function saveStage(){
-  const d=val('stDate')||todayStr();let n=0;
+  const d=val('stDate')||todayStr();
+  const gid=uid();
+  const tmod=CUR_TPL?canonItems(STAGE)!==canonItems(CUR_TPL.items):false;
   STAGE.forEach(s=>{if(!s.name.trim())return;
-    upsert('doses',{id:uid(),t:d+'T'+(s.time||'08:00'),name:s.name.trim(),dose:s.dose,missed:false,fx:''});n++;
+    upsert('doses',{id:uid(),t:d+'T'+(s.time||'08:00'),name:s.name.trim(),dose:s.dose,missed:false,fx:'',
+      gid:gid,tpl:CUR_TPL?CUR_TPL.name:'',tmod:tmod});
     if(!S.meds.some(m=>m.name.toLowerCase()===s.name.trim().toLowerCase()))S.meds.push({id:uid(),name:s.name.trim(),dose:s.dose})});
   persist();closeModal();refresh();
 }
