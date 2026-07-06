@@ -423,12 +423,15 @@ function tplModal(){
   STAGE=TPL.items;
   openModal(mhead(TPL.isNew?'New template':'Edit template')+
     '<label class="f">Template name</label><input type="text" id="tplName" value="'+esc(TPL.name)+'" placeholder="e.g. Morning meds">'+
+    '<label class="f">Default time — applied to each item you add below</label>'+
+    '<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tplTime" value="08:00" style="flex:1">'+
+    '<button type="button" class="btn sm sec" onclick="setAllTimes()">Apply to all</button></div>'+
     '<label class="f">Tap medications to add or remove them</label>'+
     '<div class="chips" id="medPick">'+medPickHTML()+'</div>'+
     (S.meds.length?'':'<div class="muted small" style="margin-top:6px">Your medication list is empty. Close this and use "+ Add medication" first, or add a custom item below.</div>')+
     '<label class="f">In this template (adjust dose / usual time)</label>'+
     '<div id="stageList">'+stageHTML()+'</div>'+
-    '<button class="btn ghost sm" style="margin-top:10px" onclick="STAGE.push({name:\'\',dose:\'\',time:\'08:00\'});redrawStage()">+ Add custom item</button>'+
+    '<button class="btn ghost sm" style="margin-top:10px" onclick="STAGE.push({name:\'\',dose:\'\',time:val(\'tplTime\')||\'08:00\'});redrawStage()">+ Add custom item</button>'+
     '<div class="btnrow"><button class="btn" onclick="saveTemplate()">Save template</button></div>');
 }
 function medPickHTML(){return S.meds.map(m=>{
@@ -436,8 +439,9 @@ function medPickHTML(){return S.meds.map(m=>{
   return '<span class="chip'+(inT?' on':'')+'" onclick="pickMed(\''+m.id+'\')">'+(inT?'&#10003; ':'+ ')+esc(m.name)+'</span>'}).join('')}
 function pickMed(id){const m=S.meds.find(x=>x.id===id);if(!m)return;
   const i=STAGE.findIndex(s=>s.name.toLowerCase()===m.name.toLowerCase());
-  if(i>=0)STAGE.splice(i,1);else STAGE.push({name:m.name,dose:m.dose||'',time:'08:00'});
+  if(i>=0)STAGE.splice(i,1);else STAGE.push({name:m.name,dose:m.dose||'',time:val('tplTime')||'08:00'});
   redrawStage();document.getElementById('medPick').innerHTML=medPickHTML()}
+function setAllTimes(){const t=val('tplTime');if(!t)return;STAGE.forEach(s=>s.time=t);redrawStage()}
 function saveTemplate(){
   TPL.name=val('tplName').trim()||'Untitled';
   TPL.items=STAGE.filter(s=>s.name.trim());
