@@ -352,9 +352,10 @@ function medMenu(){
 function doseForm(id){
   const e=id?S.doses.find(x=>x.id===id):null;
   openModal(mhead(e?'Edit dose':'Log dose')+
+    (S.meds.length?'<label class="f">Tap to select from your medication list</label>'+
+    '<div class="chips" id="dosePick">'+S.meds.map(m=>'<span class="chip'+(e&&e.name===m.name?' on':'')+'" id="dp-'+m.id+'" onclick="fillDose(\''+m.id+'\')">'+esc(m.name)+'</span>').join('')+'</div>':'')+
     '<label class="f">Medication / supplement</label>'+
-    '<input type="text" id="dName" list="medList" value="'+esc(e?e.name:'')+'" placeholder="e.g. Doxazosin">'+
-    '<datalist id="medList">'+S.meds.map(m=>'<option value="'+esc(m.name)+'">').join('')+'</datalist>'+
+    '<input type="text" id="dName" value="'+esc(e?e.name:'')+'" placeholder="or type a one-off item">'+
     '<div class="row2"><div><label class="f">Dose</label><input type="text" id="dDose" value="'+esc(e?e.dose:'')+'" placeholder="4 mg"></div>'+
     '<div><label class="f">Time taken</label><input type="datetime-local" id="dT" value="'+(e?e.t:nowISO())+'"></div></div>'+
     '<div style="margin-top:8px">'+togHTML('dMissed','Missed this dose',e?e.missed:false)+'</div>'+
@@ -362,6 +363,10 @@ function doseForm(id){
     '<div class="btnrow">'+(e?'<button class="btn danger" onclick="delItem(\'doses\',\''+id+'\')">Delete</button>':'')+
     '<button class="btn" onclick="saveDose(\''+(id||'')+'\')">Save</button></div>');
 }
+function fillDose(id){const m=S.meds.find(x=>x.id===id);if(!m)return;
+  document.getElementById('dName').value=m.name;document.getElementById('dDose').value=m.dose||'';
+  document.querySelectorAll('#dosePick .chip').forEach(c=>c.classList.remove('on'));
+  document.getElementById('dp-'+id).classList.add('on')}
 function saveDose(id){
   const name=val('dName').trim();if(!name){alert('Name required');return}
   const o={id:id||uid(),t:val('dT'),name:name,dose:val('dDose'),missed:togVal('dMissed'),fx:val('dFx')};
