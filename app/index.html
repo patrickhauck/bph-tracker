@@ -137,11 +137,14 @@ svg.chart{width:100%;height:auto;display:block}
 </head>
 <body>
 <header>
-  <div>
+  <div onclick="go('log')" style="cursor:pointer">
     <h1>BPH Tracker</h1>
     <div class="sub" id="hdrSub"></div>
   </div>
-  <button class="btn sm sec" onclick="go('report')">Report</button>
+  <div>
+    <button class="btn sm sec" onclick="go('log')">&#8962; Home</button>
+    <button class="btn sm sec" onclick="go('report')">Report</button>
+  </div>
 </header>
 
 <main>
