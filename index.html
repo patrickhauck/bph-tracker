@@ -360,8 +360,15 @@ function doseForm(id){
     '<div><label class="f">Time taken</label><input type="datetime-local" id="dT" value="'+(e?e.t:nowISO())+'"></div></div>'+
     '<div style="margin-top:8px">'+togHTML('dMissed','Missed this dose',e?e.missed:false)+'</div>'+
     '<label class="f">Side effects</label><input type="text" id="dFx" value="'+esc(e?e.fx:'')+'" placeholder="dizziness, congestion, fatigue&hellip;">'+
-    '<div class="btnrow">'+(e?'<button class="btn danger" onclick="delItem(\'doses\',\''+id+'\')">Delete</button>':'')+
+    ((e&&S.doses.filter(x=>x.t===e.t).length>1)?
+      '<div style="margin-top:12px"><button class="btn danger wide" onclick="delDoseGroup(\''+e.t+'\')">Delete all '+S.doses.filter(x=>x.t===e.t).length+' entries at this date/time</button></div>':'')+
+    '<div class="btnrow">'+(e?'<button class="btn danger" onclick="delItem(\'doses\',\''+id+'\')">Delete this one</button>':'')+
     '<button class="btn" onclick="saveDose(\''+(id||'')+'\')">Save</button></div>');
+}
+function delDoseGroup(t){
+  const n=S.doses.filter(x=>x.t===t).length;
+  if(!confirm('Delete all '+n+' medication entries logged at this exact date/time?'))return;
+  S.doses=S.doses.filter(x=>x.t!==t);persist();closeModal();refresh();
 }
 function fillDose(id){const m=S.meds.find(x=>x.id===id);if(!m)return;
   document.getElementById('dName').value=m.name;document.getElementById('dDose').value=m.dose||'';
